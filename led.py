@@ -3,6 +3,8 @@ import time
 import board
 import busio
 
+from random import randint
+
 import mido
 
 import adafruit_mpr121
@@ -10,17 +12,19 @@ import adafruit_mpr121
 
 def strobe():
     """ strobe effect """
-    numLEDs = 512
+    num_leds = 512
     client = opc.Client('localhost:7890')
 
-    black = [ (0,0,0) ] * numLEDs
-    white = [ (255,255,255) ] * numLEDs
+    black = [(0,0,0)] * num_leds
+    white = [(255,255,255)] * num_leds
 
     while True:
 	client.put_pixels(white)
 	time.sleep(0.05) 
+
 	client.put_pixels(black)
 	time.sleep(0.05)
+
 
 
 def game_mode():
@@ -31,7 +35,12 @@ def game_mode():
     #mpr121 = adafruit_mpr121.MPR121(i2c, address=0x91)
 
     # initial touch state
-    last = mpr121.touched()
+    last_touched = mpr121.touched()
+
+    # generate random number for touch tensor
+    # mpr121 sensor has 12 sensors total, so need 0-11
+    to_be_touched = randint(0, 11)
+
 
     # Loop forever testing each input and printing when they're touched.
     while True:
@@ -43,11 +52,13 @@ def game_mode():
             # it is not being touched.
             pin_bit = 1 << i
 
-            # First check if transitioned from not touched to touched.
-            if current_touched & pin_bit and not last_touched & pin_bit:
+            if (to_be_touched == i
+                and current_touched & pin_bit 
+                and not last_touched & pin_bit):
                 print('{0} touched!'.format(i))
-                if (sounds[i]):
-                    sounds[i].play()
+
+                
+
 
             if not current_touched & pin_bit and last_touched & pin_bit:
                 print('{0} released!'.format(i))
