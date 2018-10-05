@@ -5,8 +5,9 @@ from mido import Message
 
 
 def receive():
-    HOST = '192.168.1.223'
+    HOST = socket.gethostname() 
     PORT = 5555 
+    print(HOST)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
