@@ -5,13 +5,21 @@ from mido import Message
 
 
 def receive():
-    UDP_IP = "108.46.37.32"
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(MESSAGE, (UDP_IP, UDP_PORT))
-    while True:
-        data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-        print("received message:" data)
+    HOST = socket.gethostname()
+    PORT = 5555 
 
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        s.listen()
+        conn, addr = s.accept()
+        with conn:
+            print('Connected by', addr)
+            while True:
+                data = conn.recv(1024)
+                if not data:
+                    break
+                else:
+                    print(data)
 
 def execute_midi():
     """ execute midi """
@@ -34,5 +42,7 @@ def execute_midi():
     except KeyboardInterrupt:
         pass
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
+    print('socket opened')
     receive()
