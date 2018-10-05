@@ -20,7 +20,8 @@ def receive():
                 if not data:
                     break
                 else:
-                    print(data)
+                    d = int.from_bytes(data, byteorder='little')
+                    print(d)
 
 def execute_midi():
     """ execute midi """

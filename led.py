@@ -12,13 +12,13 @@ import adafruit_mpr121
 NUM_LEDS = 512
 
 def send():
-    HOST = "192.168.1.223"
+    HOST = "192.168.1.224"
     PORT = 5555 
     MESSAGE = "Hello, World!"
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
-        s.sendall(1)
+        s.sendall((1).to_bytes(2, byteorder'little')
 
 
 # def fade():
