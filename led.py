@@ -18,7 +18,7 @@ def send():
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
-        s.sendall((1).to_bytes(2, byteorder'little')
+        s.sendall((5).to_bytes(2, byteorder='little'))
 
 
 # def fade():

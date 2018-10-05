@@ -21,26 +21,24 @@ def receive():
                     break
                 else:
                     d = int.from_bytes(data, byteorder='little')
-                    print(d)
+                    execute_midi(d)
 
-def execute_midi():
+def execute_midi(note):
     """ execute midi """
     portname = mido.get_output_names()[2]
-    notes = list(range(5, 30))
 
     try:
         with mido.open_output(portname, autoreset=True) as port:
             print("Using {}".format(port))
             while True:
-                for note in notes:
-                    on = Message("note_on", note=note)
-                    print("Sending {}".format(on))
-                    port.send(on)
+                on = Message("note_on", note=note)
+                print("Sending {}".format(on))
+                port.send(on)
 
-                    off = Message("note_off", note=note)
-                    print("Sending {}".format(off))
-                    time.sleep(2.35)
-                    port.send(off)
+                off = Message("note_off", note=note)
+                print("Sending {}".format(off))
+                time.sleep(2.35)
+                port.send(off)
     except KeyboardInterrupt:
         pass
 
