@@ -14,7 +14,6 @@ NUM_LEDS = 512
 def send():
     HOST = "192.168.1.224"
     PORT = 5555 
-    MESSAGE = "Hello, World!"
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))

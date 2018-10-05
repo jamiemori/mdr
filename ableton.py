@@ -1,5 +1,6 @@
 import socket
 import mido
+import time
 
 from mido import Message
 
@@ -7,21 +8,27 @@ from mido import Message
 def receive():
     HOST = socket.gethostname() 
     PORT = 5555 
-    print(HOST)
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
-        s.listen()
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((HOST, PORT))
+    s.listen()
+
+    while True:
+        print('waiting for connectionc')
         conn, addr = s.accept()
-        with conn:
-            print('Connected by', addr)
+        try:
+            print('connection from', addr)
             while True:
                 data = conn.recv(1024)
+                print('received {!r}'.format(data))
                 if not data:
                     break
                 else:
                     d = int.from_bytes(data, byteorder='little')
                     execute_midi(d)
+        finally:
+            conn.close()
+
 
 def execute_midi(note):
     """ execute midi """
@@ -30,15 +37,15 @@ def execute_midi(note):
     try:
         with mido.open_output(portname, autoreset=True) as port:
             print("Using {}".format(port))
-            while True:
-                on = Message("note_on", note=note)
-                print("Sending {}".format(on))
-                port.send(on)
 
-                off = Message("note_off", note=note)
-                print("Sending {}".format(off))
-                time.sleep(2.35)
-                port.send(off)
+            on = Message("note_on", note=note)
+            print("Sending {}".format(on))
+            port.send(on)
+
+            off = Message("note_off", note=note)
+            print("Sending {}".format(off))
+            time.sleep(2.35)
+            port.send(off)
     except KeyboardInterrupt:
         pass
 
