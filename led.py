@@ -111,35 +111,30 @@ def gamma(color, gamma):
     return (max(r, 0) ** gamma, max(g, 0) ** gamma, max(b, 0) ** gamma)
 
 
-def pixel_color(t, coord, i, n_pixels, random_values):
+def pixel_color(t, i, n_pixels, random_values):
     """
     Compute the color of a given pixel.
 
     t: time in seconds since the program started.
-    coord: the (x, y, z) position of the pixel as a tuple
     i: which pixel this is, starting at 0
     n_pixels: the total number of pixels
     random_values: a list containing a constant random value for each pixel
 
     Returns an (r, g, b) tuple in the range 0-255
     """
-    # make moving stripes for x, y, and z
-    x, y, z = coord
-    y += cos(x + 0.2*z, offset=0, period=1, minn=0, maxx=0.6)
-    z += cos(x, offset=0, period=1, minn=0, maxx=0.3)
-    x += cos(y + z, offset=0, period=1.5, minn=0, maxx=0.2)
+    y = cos(i + 0.2*i, offset=0, period=1, minn=0, maxx=0.6)
 
-    # rotate
-    x, y, z = y, z, x
+    # # rotate
+    # x, y, z = y, z, x
 
     # make x, y, z -> r, g, b sine waves
-    r = cos(x, offset=t / 4, period=2.5, minn=0, maxx=1)
+    r = cos(y, offset=t / 4, period=2.5, minn=0, maxx=1)
     g = cos(y, offset=t / 4, period=2.5, minn=0, maxx=1)
-    b = cos(z, offset=t / 4, period=2.5, minn=0, maxx=1)
+    b = cos(y, offset=t / 4, period=2.5, minn=0, maxx=1)
 
     r, g, b = contrast((r, g, b), 0.5, 1.4)
 
-    clampdown = (r + g + b)/2
+    clampdown = (r + g + b) / 2
     clampdown = remap(clampdown, 0.4, 0.5, 0, 1)
     clampdown = clamp(clampdown, 0, 1)
     clampdown *= 0.9
@@ -149,12 +144,12 @@ def pixel_color(t, coord, i, n_pixels, random_values):
     b *= clampdown
 
     # black out regions
-    r2 = color_utils.cos(x, offset=t / 10 + 12.345, period=4, minn=0, maxx=1)
-    g2 = color_utils.cos(y, offset=t / 10 + 24.536, period=4, minn=0, maxx=1)
-    b2 = color_utils.cos(z, offset=t / 10 + 34.675, period=4, minn=0, maxx=1)
+    r2 = cos(i, offset=t / 10 + 12.345, period=4, minn=0, maxx=1)
+    g2 = cos(i, offset=t / 10 + 24.536, period=4, minn=0, maxx=1)
+    b2 = cos(i, offset=t / 10 + 34.675, period=4, minn=0, maxx=1)
     clampdown = (r2 + g2 + b2)/2
-    clampdown = color_utils.remap(clampdown, 0.2, 0.3, 0, 1)
-    clampdown = color_utils.clamp(clampdown, 0, 1)
+    clampdown = remap(clampdown, 0.2, 0.3, 0, 1)
+    clampdown = clamp(clampdown, 0, 1)
     r *= clampdown
     g *= clampdown
     b *= clampdown
@@ -163,25 +158,23 @@ def pixel_color(t, coord, i, n_pixels, random_values):
     #     g = (r+b) / 2
     g = g * 0.6 + ((r+b) / 2) * 0.4
 
-
     # fade behind twinkle
-    fade = color_utils.cos(t - ii/n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
+    fade = cos(t - ii/n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
     fade = 1 - fade*0.2
     r *= fade
     g *= fade
     b *= fade
-
 
     # twinkle occasional LEDs
     twinkle_speed = 0.07
     twinkle_density = 0.1
     twinkle = (random_values[ii]*7 + time.time()*twinkle_speed) % 1
     twinkle = abs(twinkle*2 - 1)
-    twinkle = color_utils.remap(twinkle, 0, 1, -1/twinkle_density, 1.1)
-    twinkle = color_utils.clamp(twinkle, -0.5, 1.1)
+    twinkle = remap(twinkle, 0, 1, -1/twinkle_density, 1.1)
+    twinkle = clamp(twinkle, -0.5, 1.1)
     twinkle **= 5
-    twinkle *= color_utils.cos(t - ii/n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
-    twinkle = color_utils.clamp(twinkle, -0.3, 1)
+    twinkle *= cos(t - ii/n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
+    twinkle = clamp(twinkle, -0.3, 1)
     r += twinkle
     g += twinkle
     b += twinkle
@@ -198,13 +191,15 @@ def miami():
     based on:
     https://github.com/zestyping/openpixelcontrol/blob/master/python/miami.py 
     """
-    n_pixels = 40
+    n_pixels = 20
     random_values = [random.random() for i in range(n_pixels)]
+    coordinates = list(range(70, 90))
     start_time = time.time()
+
     while True:
         t = time.time() - start_time
-        pixels = [pixel_color(t*0.6, coord, i, n_pixels, random_values) 
-                  for i, coord in enumerate(coordinates)]
+        pixels = [pixel_color(t*0.6, i, n_pixels, random_values) 
+                  for i in coordinates]
 
 
 # def fade():
