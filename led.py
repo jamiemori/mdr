@@ -290,11 +290,11 @@ def explore_mode():
             time.sleep(0.1)
 
             # for debugging
-            print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(cap.touched()))
-            filtered = [cap.filtered_data(i) for i in range(12)]
+            print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(mpr121.touched()))
+            filtered = [mpr121.filtered_data(i) for i in range(12)]
 
             print("Filt:", "\t".join(map(str, filtered)))
-            base = [cap.baseline_data(i) for i in range(12)]
+            base = [mpr121.baseline_data(i) for i in range(12)]
 
             print("Base:", "\t".join(map(str, base)))
 
