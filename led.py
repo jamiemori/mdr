@@ -355,7 +355,8 @@ def explore_mode():
 
 
 def main():
-    miami()
+    explore_mode()
+    # miami()
     # chase()
     # send()
 

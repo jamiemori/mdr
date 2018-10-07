@@ -15,7 +15,7 @@ def receive():
     s.listen()
 
     while True:
-        print('waiting for connectionc')
+        print('waiting for connection')
         conn, addr = s.accept()
         try:
             print('connection from', addr)
@@ -53,4 +53,4 @@ def execute_midi(note):
 
 if __name__ == "__main__":
     print('socket opened')
-   receive()
+    receive()
