@@ -113,6 +113,9 @@ def gamma(color, gamma):
 
 def pixel_color(t, i, n_pixels, random_values):
     """
+    from: 
+    https://github.com/zestyping/openpixelcontrol/blob/master/python/miami.py
+
     Compute the color of a given pixel.
 
     t: time in seconds since the program started.
@@ -155,25 +158,24 @@ def pixel_color(t, i, n_pixels, random_values):
     b *= clampdown
 
     # color scheme: fade towards blue-and-orange
-    #     g = (r+b) / 2
     g = g * 0.6 + ((r+b) / 2) * 0.4
 
     # fade behind twinkle
-    fade = cos(t - ii/n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
+    fade = cos(t - i / n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
     fade = 1 - fade*0.2
     r *= fade
     g *= fade
     b *= fade
 
     # twinkle occasional LEDs
-    twinkle_speed = 0.07
-    twinkle_density = 0.1
-    twinkle = (random_values[ii]*7 + time.time()*twinkle_speed) % 1
-    twinkle = abs(twinkle*2 - 1)
-    twinkle = remap(twinkle, 0, 1, -1/twinkle_density, 1.1)
+    twinkle_speed = 0.7
+    twinkle_density = 0.4
+    twinkle = (random_values[i] * 10 + time.time() * twinkle_speed) % 1
+    twinkle = abs(twinkle * 2 - 1)
+    twinkle = remap(twinkle, 0, 1, -1 / twinkle_density, 1.1)
     twinkle = clamp(twinkle, -0.5, 1.1)
     twinkle **= 5
-    twinkle *= cos(t - ii/n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
+    twinkle *= cos(t - i / n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
     twinkle = clamp(twinkle, -0.3, 1)
     r += twinkle
     g += twinkle
@@ -181,9 +183,9 @@ def pixel_color(t, i, n_pixels, random_values):
 
     # apply gamma curve
     # only do this on live leds, not in the simulator
-    r, g, b = gamma((r, g, b), 2.2)
+    r, g, b = gamma((r, g, b), 1)
 
-    return (r*256, g*256, b*256)
+    return (r*128, g*128, b*256)
 
 
 def miami():
@@ -191,15 +193,16 @@ def miami():
     based on:
     https://github.com/zestyping/openpixelcontrol/blob/master/python/miami.py 
     """
-    n_pixels = 20
-    random_values = [random.random() for i in range(n_pixels)]
-    coordinates = list(range(70, 90))
+    random_values = [random.random() for i in range(NUM_LEDS)]
+    coordinates = list(range(130, 190))
     start_time = time.time()
 
     while True:
         t = time.time() - start_time
-        pixels = [pixel_color(t*0.6, i, n_pixels, random_values) 
+        pixels = [pixel_color(t, i, NUM_LEDS, random_values) 
                   for i in coordinates]
+        client.put_pixels(pixels, channel=0)
+        time.sleep(0.1)
 
 
 # def fade():
