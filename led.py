@@ -260,7 +260,7 @@ def explore_mode():
 
     last_touched = mpr121.touched()
     while True:
-        current_touched = cap.touched()
+        current_touched = mpr121.touched()
 
         # Check each pin's last and current state to see if it was pressed or released.
         for i in range(12):
@@ -363,15 +363,6 @@ def explore_mode():
             # # Update last state and wait a short period before repeating.
             # last_touched = current_touched
             # time.sleep(0.1)
-
-            # # for debugging
-            # print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(cap.touched()))
-            # filtered = [cap.filtered_data(i) for i in range(12)]
-
-            # print("Filt:", "\t".join(map(str, filtered)))
-            # base = [cap.baseline_data(i) for i in range(12)]
-
-            # print("Base:", "\t".join(map(str, base)))
 
 
 def main():
