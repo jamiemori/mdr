@@ -1,15 +1,21 @@
 import sys
 # import opc
+import opc
 import time
 # import board
 # import busio
 import socket
+import math
+
+import random
 
 from random import randint
 
 import adafruit_mpr121
 
-NUM_LEDS = 512
+NUM_LEDS = 792
+client = opc.Client('localhost:7890')
+k = 0.001
 
 def send():
     HOST = "192.168.1.224"
@@ -18,6 +24,187 @@ def send():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
         s.sendall((5).to_bytes(2, byteorder='little'))
+
+def chase():
+    while True:
+        pixels = [(0,0,0)] * NUM_LEDS
+        for j in range(80, 100, 1):
+            pixels[j] = (255, 0, 0)
+        client.put_pixels(pixels)
+        time.sleep(k)
+
+
+def remap(x, oldmin, oldmax, newmin, newmax):
+    """Remap the float x from the range oldmin-oldmax to the range newmin-newmax
+    Does not clamp values that exceed min or max.
+    For example, to make a sine wave that goes between 0 and 256:
+        remap(math.sin(time.time()), -1, 1, 0, 256)
+    """
+    zero_to_one = (x-oldmin) / (oldmax-oldmin)
+    return zero_to_one*(newmax-newmin) + newmin
+
+
+def clamp(x, minn, maxx):
+    """Restrict the float x to the range minn-maxx."""
+    return max(minn, min(maxx, x))
+
+
+def cos(x, offset=0, period=1, minn=0, maxx=1):
+    """A cosine curve scaled to fit in a 0-1 range and 0-1 domain by default.
+    offset: how much to slide the curve across the domain (should be 0-1)
+    period: the length of one wave
+    minn, maxx: the output range
+    """
+    value = math.cos((x/period - offset) * math.pi * 2) / 2 + 0.5
+    return value*(maxx-minn) + minn
+
+
+def contrast(color, center, mult):
+    """Expand the color values by a factor of mult around the pivot value of center.
+    color: an (r, g, b) tuple
+    center: a float -- the fixed point
+    mult: a float -- expand or contract the values around the center point
+    """
+    r, g, b = color
+    r = (r - center) * mult + center
+    g = (g - center) * mult + center
+    b = (b - center) * mult + center
+    return (r, g, b)
+
+
+def clip_black_by_luminance(color, threshold):
+    """If the color's luminance is less than threshold, replace it with black.
+    
+    color: an (r, g, b) tuple
+    threshold: a float
+    """
+    r, g, b = color
+    if r+g+b < threshold*3:
+        return (0, 0, 0)
+    return (r, g, b)
+
+
+def clip_black_by_channels(color, threshold):
+    """Replace any individual r, g, or b value less than threshold with 0.
+    color: an (r, g, b) tuple
+    threshold: a float
+    """
+    r, g, b = color
+    if r < threshold: r = 0
+    if g < threshold: g = 0
+    if b < threshold: b = 0
+    return (r, g, b)
+
+
+def mod_dist(a, b, n):
+    """Return the distance between floats a and b, modulo n.
+    The result is always non-negative.
+    For example, thinking of a clock:
+    mod_dist(11, 1, 12) == 2 because you can "wrap around".
+    """
+    return min((a-b) % n, (b-a) % n)
+
+
+def gamma(color, gamma):
+    """Apply a gamma curve to the color.  The color values should be in the range 0-1."""
+    r, g, b = color
+    return (max(r, 0) ** gamma, max(g, 0) ** gamma, max(b, 0) ** gamma)
+
+
+def pixel_color(t, coord, i, n_pixels, random_values):
+    """
+    Compute the color of a given pixel.
+
+    t: time in seconds since the program started.
+    coord: the (x, y, z) position of the pixel as a tuple
+    i: which pixel this is, starting at 0
+    n_pixels: the total number of pixels
+    random_values: a list containing a constant random value for each pixel
+
+    Returns an (r, g, b) tuple in the range 0-255
+    """
+    # make moving stripes for x, y, and z
+    x, y, z = coord
+    y += cos(x + 0.2*z, offset=0, period=1, minn=0, maxx=0.6)
+    z += cos(x, offset=0, period=1, minn=0, maxx=0.3)
+    x += cos(y + z, offset=0, period=1.5, minn=0, maxx=0.2)
+
+    # rotate
+    x, y, z = y, z, x
+
+    # make x, y, z -> r, g, b sine waves
+    r = cos(x, offset=t / 4, period=2.5, minn=0, maxx=1)
+    g = cos(y, offset=t / 4, period=2.5, minn=0, maxx=1)
+    b = cos(z, offset=t / 4, period=2.5, minn=0, maxx=1)
+
+    r, g, b = contrast((r, g, b), 0.5, 1.4)
+
+    clampdown = (r + g + b)/2
+    clampdown = remap(clampdown, 0.4, 0.5, 0, 1)
+    clampdown = clamp(clampdown, 0, 1)
+    clampdown *= 0.9
+
+    r *= clampdown
+    g *= clampdown
+    b *= clampdown
+
+    # black out regions
+    r2 = color_utils.cos(x, offset=t / 10 + 12.345, period=4, minn=0, maxx=1)
+    g2 = color_utils.cos(y, offset=t / 10 + 24.536, period=4, minn=0, maxx=1)
+    b2 = color_utils.cos(z, offset=t / 10 + 34.675, period=4, minn=0, maxx=1)
+    clampdown = (r2 + g2 + b2)/2
+    clampdown = color_utils.remap(clampdown, 0.2, 0.3, 0, 1)
+    clampdown = color_utils.clamp(clampdown, 0, 1)
+    r *= clampdown
+    g *= clampdown
+    b *= clampdown
+
+    # color scheme: fade towards blue-and-orange
+    #     g = (r+b) / 2
+    g = g * 0.6 + ((r+b) / 2) * 0.4
+
+
+    # fade behind twinkle
+    fade = color_utils.cos(t - ii/n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
+    fade = 1 - fade*0.2
+    r *= fade
+    g *= fade
+    b *= fade
+
+
+    # twinkle occasional LEDs
+    twinkle_speed = 0.07
+    twinkle_density = 0.1
+    twinkle = (random_values[ii]*7 + time.time()*twinkle_speed) % 1
+    twinkle = abs(twinkle*2 - 1)
+    twinkle = color_utils.remap(twinkle, 0, 1, -1/twinkle_density, 1.1)
+    twinkle = color_utils.clamp(twinkle, -0.5, 1.1)
+    twinkle **= 5
+    twinkle *= color_utils.cos(t - ii/n_pixels, offset=0, period=7, minn=0, maxx=1) ** 20
+    twinkle = color_utils.clamp(twinkle, -0.3, 1)
+    r += twinkle
+    g += twinkle
+    b += twinkle
+
+    # apply gamma curve
+    # only do this on live leds, not in the simulator
+    r, g, b = gamma((r, g, b), 2.2)
+
+    return (r*256, g*256, b*256)
+
+
+def miami():
+    """ 
+    based on:
+    https://github.com/zestyping/openpixelcontrol/blob/master/python/miami.py 
+    """
+    n_pixels = 40
+    random_values = [random.random() for i in range(n_pixels)]
+    start_time = time.time()
+    while True:
+        t = time.time() - start_time
+        pixels = [pixel_color(t*0.6, coord, i, n_pixels, random_values) 
+                  for i, coord in enumerate(coordinates)]
 
 
 # def fade():
@@ -115,7 +302,9 @@ class Rand:
 
 
 def main():
-    send()
+    miami()
+    #chase()
+    #send()
     # # TODO add option selection based on input mode
     # game_mode()
 
