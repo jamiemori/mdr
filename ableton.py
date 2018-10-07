@@ -1,6 +1,7 @@
 import socket
 import mido
 import time
+import pdb
 
 from mido import Message
 
@@ -26,6 +27,7 @@ def receive():
                     break
                 else:
                     d = int.from_bytes(data, byteorder='little')
+                    print(d)
                     execute_midi(d)
         finally:
             conn.close()

@@ -258,45 +258,65 @@ def explore_mode():
     i2c = busio.I2C(board.SCL, board.SDA)
     mpr121 = adafruit_mpr121.MPR121(i2c)
 
-    # # NOTE you can optionally change the address of the device:
-    # mpr121 = adafruit_mpr121.MPR121(i2c, address=0x91)
-
-    # initial touch state
     last_touched = mpr121.touched()
-
     while True:
-        current_touched = mpr121.touched()
+        current_touched = cap.touched()
+
+        # Check each pin's last and current state to see if it was pressed or released.
         for i in range(12):
-            # Each pin is represented by a bit in the touched value.
-            # A value of 1 means the pin is being touched, and 0 means
-            # it is not being touched.
+            # Each pin is represented by a bit in the touched value.  A value of 1
+            # means the pin is being touched, and 0 means it is not being touched.
             pin_bit = 1 << i
+            # First check if transitioned from not touched to touched.
+            if current_touched & pin_bit and not last_touched & pin_bit:
+                print('{0} touched!'.format(i))
 
-            if (
-                current_touched & pin_bit
-                and not last_touched & pin_bit
-            ):
-                print("{0} touched!".format(i))
-                send(i)
+            if not current_touched & pin_bit and last_touched & pin_bit:
+                print('{0} released!'.format(i))
 
-            if (
-                not current_touched & pin_bit
-                and last_touched & pin_bit
-            ):
-                print("{0} released!".format(i))
+        # Update last state and wait a short period before repeating.
+        last_touched = current_touched
+        time.sleep(0.1)
 
-            # Update last state and wait a short period before repeating.
-            last_touched = current_touched
-            time.sleep(0.1)
+    # # # NOTE you can optionally change the address of the device:
+    # # mpr121 = adafruit_mpr121.MPR121(i2c, address=0x91)
 
-            # for debugging
-            print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(mpr121.touched()))
-            filtered = [mpr121.filtered_data(i) for i in range(12)]
+    # # initial touch state
+    # last_touched = mpr121.touched()
 
-            print("Filt:", "\t".join(map(str, filtered)))
-            base = [mpr121.baseline_data(i) for i in range(12)]
+    # while True:
+        # current_touched = mpr121.touched()
+        # for i in range(12):
+            # # Each pin is represented by a bit in the touched value.
+            # # A value of 1 means the pin is being touched, and 0 means
+            # # it is not being touched.
+            # pin_bit = 1 << i
 
-            print("Base:", "\t".join(map(str, base)))
+            # if (
+                # current_touched & pin_bit
+                # and not last_touched & pin_bit
+            # ):
+                # print("{0} touched!".format(i))
+                # send(i)
+
+            # if (
+                # not current_touched & pin_bit
+                # and last_touched & pin_bit
+            # ):
+                # print("{0} released!".format(i))
+
+            # # Update last state and wait a short period before repeating.
+            # last_touched = current_touched
+            # time.sleep(0.1)
+
+            # # for debugging
+            # print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(mpr121.touched()))
+            # filtered = [mpr121.filtered_data(i) for i in range(12)]
+
+            # print("Filt:", "\t".join(map(str, filtered)))
+            # base = [mpr121.baseline_data(i) for i in range(12)]
+
+            # print("Base:", "\t".join(map(str, base)))
 
 
 # def game_mode():
