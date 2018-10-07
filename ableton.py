@@ -6,6 +6,7 @@ from mido import Message
 
 
 def receive():
+    """ receive socket message from sender """
     HOST = socket.gethostname() 
     PORT = 5555 
 
@@ -52,4 +53,4 @@ def execute_midi(note):
 
 if __name__ == "__main__":
     print('socket opened')
-    receive()
+   receive()
