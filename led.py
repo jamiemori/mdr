@@ -357,7 +357,7 @@ def explore_mode():
                 print("{0} touched!".format(i))
                 if i <= 7:
                     led_queue.put(i)
-                # send(i)
+                    send(i)
 
             if not current_touched & pin_bit and last_touched & pin_bit:
                 print("{0} released!".format(i))
