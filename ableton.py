@@ -31,7 +31,7 @@ def execute_midi(note):
             port.send(on)
 
             print(threading.get_ident())
-            for i in range(3):
+            for i in range(5):
                 print(i, threading.get_ident())
                 time.sleep(1)
                 i -= 1
@@ -63,7 +63,7 @@ def receive():
         try:
             print("connection from", addr)
             while True:
-                data = conn.recv(16)
+                data = conn.recv(1024)
                 print("received {!r}".format(data))
                 if not data:
                     break

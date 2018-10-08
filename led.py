@@ -16,7 +16,7 @@ import adafruit_mpr121
 
 
 NUM_LEDS = 792
-#NUM_LEDS = 512
+# NUM_LEDS = 512
 client = opc.Client("localhost:7890")
 k = 0.001
 pixels = [(0, 0, 0)] * NUM_LEDS
@@ -39,6 +39,7 @@ def chase_0():
             pixels[j] = (255, 255, 0)
             client.put_pixels(pixels)
             time.sleep(k)
+
 
 def chase_1():
     while True:
@@ -220,11 +221,11 @@ def miami(sensor_id):
         0: (0, 64),
         1: (65, 128),
         2: (129, 192),
-        3: (193, 256), 
-        4: (257, 320), 
-        5: (321, 385), 
-        6: (386, 449), 
-        7: (450, 512)
+        3: (193, 256),
+        4: (257, 320),
+        5: (321, 385),
+        6: (386, 449),
+        7: (450, 512),
     }
 
     global pixels
@@ -246,7 +247,9 @@ def miami(sensor_id):
         t_end = time.time() + 2.5
         while time.time() < t_end:
             t = time.time() - start_time
-            pixels[start_pixel:end_pixel] = [pixel_color(t, i, NUM_LEDS, random_values) for i in coordinates]
+            pixels[start_pixel:end_pixel] = [
+                pixel_color(t, i, NUM_LEDS, random_values) for i in coordinates
+            ]
             client.put_pixels(pixels, channel=0)
     except KeyboardInterrupt:
         pixels = [(0, 0, 0)] * NUM_LEDS
@@ -313,24 +316,24 @@ def execute_lights(led_queue):
 
 
 # def explore_test():
-    # worker_threads = []
-    # for i in range(5):
-        # t = threading.Thread(target=execute_lights, daemon=True, args=(led_queue,))
-        # worker_threads.append(t)
-        # t.start()
+# worker_threads = []
+# for i in range(5):
+# t = threading.Thread(target=execute_lights, daemon=True, args=(led_queue,))
+# worker_threads.append(t)
+# t.start()
 
-    # while True:
-        # for i in range(5):
-            # time.sleep(0.5)
-            # print(i)
-            # rand = Rand()
-            # led_queue.put(rand())
+# while True:
+# for i in range(5):
+# time.sleep(0.5)
+# print(i)
+# rand = Rand()
+# led_queue.put(rand())
 
-        # j = 2
-        # for j in range(3): 
-            # print('sleeping', j)
-            # time.sleep(1)
-            # j -= 1
+# j = 2
+# for j in range(3):
+# print('sleeping', j)
+# time.sleep(1)
+# j -= 1
 
 
 def explore_mode():
@@ -339,7 +342,9 @@ def explore_mode():
 
     worker_threads = []
     for i in range(20):
-        t = threading.Thread(target=execute_lights, daemon=True, args=(led_queue,))
+        t = threading.Thread(
+            target=execute_lights, daemon=True, args=(led_queue,)
+        )
         worker_threads.append(t)
         t.start()
 
@@ -455,15 +460,16 @@ def explore_mode():
 
 def main():
     explore_mode()
-    #explore_test()
-    #while True:
-        #miami()
-    #chase_0()
+    # explore_test()
+    # while True:
+    # miami()
+    # chase_0()
     # chase_1()
     # send()
 
     # # TODO add option selection based on input mode
     # game_mode()
+
 
 if __name__ == "__main__":
     main()
