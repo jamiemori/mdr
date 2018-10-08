@@ -312,25 +312,25 @@ def execute_lights(led_queue):
         led_queue.task_done()
 
 
-def explore_test():
-    worker_threads = []
-    for i in range(5):
-        t = threading.Thread(target=execute_lights, daemon=True, args=(led_queue,))
-        worker_threads.append(t)
-        t.start()
+# def explore_test():
+    # worker_threads = []
+    # for i in range(5):
+        # t = threading.Thread(target=execute_lights, daemon=True, args=(led_queue,))
+        # worker_threads.append(t)
+        # t.start()
 
-    while True:
-        for i in range(5):
-            time.sleep(0.5)
-            print(i)
-            rand = Rand()
-            led_queue.put(rand())
+    # while True:
+        # for i in range(5):
+            # time.sleep(0.5)
+            # print(i)
+            # rand = Rand()
+            # led_queue.put(rand())
 
-        j = 2
-        for j in range(3): 
-            print('sleeping', j)
-            time.sleep(1)
-            j -= 1
+        # j = 2
+        # for j in range(3): 
+            # print('sleeping', j)
+            # time.sleep(1)
+            # j -= 1
 
 
 def explore_mode():
@@ -454,12 +454,12 @@ def explore_mode():
 
 
 def main():
-    #explore_mode()
+    explore_mode()
     #explore_test()
     #while True:
         #miami()
     #chase_0()
-    chase_1()
+    # chase_1()
     # send()
 
     # # TODO add option selection based on input mode
