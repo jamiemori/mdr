@@ -7,6 +7,7 @@ import queue
 
 import board
 import busio
+import threading
 
 import random
 from random import randint
@@ -14,10 +15,11 @@ from random import randint
 import adafruit_mpr121
 
 
-# NUM_LEDS = 792
-NUM_LEDS = 512
+NUM_LEDS = 792
+#NUM_LEDS = 512
 client = opc.Client("localhost:7890")
 k = 0.001
+pixels = [(0, 0, 0)] * NUM_LEDS
 
 
 def send(pin):
@@ -29,13 +31,23 @@ def send(pin):
         s.sendall((pin).to_bytes(2, byteorder="little"))
 
 
-def chase():
+def chase_0():
     while True:
         pixels = [(0, 0, 0)] * NUM_LEDS
-        for j in range(80, 100, 1):
+        for j in range(NUM_LEDS):
+            print(j)
+            pixels[j] = (255, 255, 0)
+            client.put_pixels(pixels)
+            time.sleep(k)
+
+def chase_1():
+    while True:
+        for j in range(NUM_LEDS):
+            print(j)
+            pixels = [(0, 0, 0)] * NUM_LEDS
             pixels[j] = (255, 0, 0)
-        client.put_pixels(pixels)
-        time.sleep(k)
+            client.put_pixels(pixels)
+            time.sleep(k)
 
 
 def remap(x, oldmin, oldmax, newmin, newmax):
@@ -196,7 +208,7 @@ def pixel_color(t, i, n_pixels, random_values):
     # apply gamma curve, only do this on live leds, not in the simulator
     r, g, b = gamma((r, g, b), 1)
 
-    return (r * 128, g * 128, b * 256)
+    return (r * 256, g * 256, b * 128)
 
 
 def miami(sensor_id):
@@ -212,20 +224,35 @@ def miami(sensor_id):
         4: (257, 320), 
         5: (321, 385), 
         6: (386, 449), 
-        7: (450, 513)
+        7: (450, 512)
     }
+
+    global pixels
 
     random_values = [random.random() for i in range(NUM_LEDS)]
     coordinates = list(
-        range(led_coorindates[sensor_id][0], led_coordinates[sensor_id][1])
+        range(led_coordinates[sensor_id][0], led_coordinates[sensor_id][1])
     )
+
+    start_pixel = led_coordinates[sensor_id][0]
+    end_pixel = led_coordinates[sensor_id][1]
+
+    print(start_pixel, end_pixel)
+    print(coordinates)
+
     start_time = time.time()
 
-    while True:
-        t = time.time() - start_time
-        pixels = [pixel_color(t, i, NUM_LEDS, random_values) for i in coordinates]
+    try:
+        t_end = time.time() + 2.5
+        while time.time() < t_end:
+            t = time.time() - start_time
+            pixels[start_pixel:end_pixel] = [pixel_color(t, i, NUM_LEDS, random_values) for i in coordinates]
+            client.put_pixels(pixels, channel=0)
+    except KeyboardInterrupt:
+        pixels = [(0, 0, 0)] * NUM_LEDS
         client.put_pixels(pixels, channel=0)
-        time.sleep(0.1)
+        sys.exit(1)
+    return
 
 
 def fade():
@@ -262,13 +289,15 @@ class Rand:
         self.last = None
 
     def __call__(self):
-        r = randint(0, 11)
+        r = randint(0, 7)
         while r == self.last:
-            r = random.randint(0, 11)
+            r = random.randint(0, 7)
         self.last = r
         return r
 
+
 led_queue = queue.Queue()
+
 
 def execute_lights(led_queue):
     """ 
@@ -278,9 +307,30 @@ def execute_lights(led_queue):
     """
     while True:
         sensor_id = led_queue.get()
-        print('current queue size ---- ', led_queue.qsize())
+        print(sensor_id)
         miami(sensor_id)
         led_queue.task_done()
+
+
+def explore_test():
+    worker_threads = []
+    for i in range(5):
+        t = threading.Thread(target=execute_lights, daemon=True, args=(led_queue,))
+        worker_threads.append(t)
+        t.start()
+
+    while True:
+        for i in range(5):
+            time.sleep(0.5)
+            print(i)
+            rand = Rand()
+            led_queue.put(rand())
+
+        j = 2
+        for j in range(3): 
+            print('sleeping', j)
+            time.sleep(1)
+            j -= 1
 
 
 def explore_mode():
@@ -305,7 +355,8 @@ def explore_mode():
             # First check if transitioned from not touched to touched.
             if current_touched & pin_bit and not last_touched & pin_bit:
                 print("{0} touched!".format(i))
-                led_queue.put(i)
+                if i <= 7:
+                    led_queue.put(i)
                 # send(i)
 
             if not current_touched & pin_bit and last_touched & pin_bit:
@@ -403,14 +454,16 @@ def explore_mode():
 
 
 def main():
-    explore_mode()
-    # miami()
-    # chase()
+    #explore_mode()
+    #explore_test()
+    #while True:
+        #miami()
+    #chase_0()
+    chase_1()
     # send()
 
     # # TODO add option selection based on input mode
     # game_mode()
-
 
 if __name__ == "__main__":
     main()
