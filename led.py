@@ -209,7 +209,7 @@ def pixel_color(t, i, n_pixels, random_values):
     # apply gamma curve, only do this on live leds, not in the simulator
     r, g, b = gamma((r, g, b), 1)
 
-    return (r * 256, g * 256, b * 128)
+    return (r * 256, g * 128, b * 128)
 
 
 def miami(sensor_id):
@@ -238,8 +238,8 @@ def miami(sensor_id):
     start_pixel = led_coordinates[sensor_id][0]
     end_pixel = led_coordinates[sensor_id][1]
 
-    print(start_pixel, end_pixel)
-    print(coordinates)
+    #print(start_pixel, end_pixel)
+    #print(coordinates)
 
     start_time = time.time()
 
@@ -310,7 +310,7 @@ def execute_lights(led_queue):
     """
     while True:
         sensor_id = led_queue.get()
-        print(sensor_id)
+        #print(sensor_id)
         miami(sensor_id)
         led_queue.task_done()
 
@@ -371,6 +371,15 @@ def explore_mode():
         last_touched = current_touched
         time.sleep(0.1)
 
+        ## for debugging
+        #print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(mpr121.touched()))
+        #filtered = [mpr121.filtered_data(i) for i in range(12)]
+
+        #print("Filt:", "\t".join(map(str, filtered)))
+        #base = [mpr121.baseline_data(i) for i in range(12)]
+
+        #print("Base:", "\t".join(map(str, base)))
+
     # # # NOTE you can optionally change the address of the device:
     # # mpr121 = adafruit_mpr121.MPR121(i2c, address=0x91)
 
@@ -402,14 +411,6 @@ def explore_mode():
     # last_touched = current_touched
     # time.sleep(0.1)
 
-    # # for debugging
-    # print("\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(mpr121.touched()))
-    # filtered = [mpr121.filtered_data(i) for i in range(12)]
-
-    # print("Filt:", "\t".join(map(str, filtered)))
-    # base = [mpr121.baseline_data(i) for i in range(12)]
-
-    # print("Base:", "\t".join(map(str, base)))
 
 
 # def game_mode():
