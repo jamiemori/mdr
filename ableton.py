@@ -31,12 +31,12 @@ def execute_midi(note):
             port.send(on)
 
             print(threading.get_ident())
-            for i in range(5):
+            for i in range(7, 0, -1):
                 print(i, threading.get_ident())
                 time.sleep(1)
                 i -= 1
             off = Message("note_off", note=note)
-            print("Sending {}".format(off))
+            print("sending {}".format(off))
             port.send(off)
     except KeyboardInterrupt:
         pass
@@ -61,15 +61,15 @@ def receive():
         print("waiting for connection")
         conn, addr = s.accept()
         try:
-            print("connection from", addr)
+            #print("connection from", addr)
             while True:
-                data = conn.recv(1024)
-                print("received {!r}".format(data))
+                data = conn.recv(2048)
+                #print("received {!r}".format(data))
                 if not data:
                     break
                 else:
                     d = int.from_bytes(data, byteorder="little")
-                    print(d)
+                    #print(d)
                     midi_queue.put(d)
         except KeyboardInterrupt:
             raise
