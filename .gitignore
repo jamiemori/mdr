@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# drop box
+*.DS_Store
+
 # audio
 *.asd
 *.mp3

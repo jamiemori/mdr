@@ -1,7 +1,6 @@
 import socket
 import mido
 import time
-import pdb
 
 import threading
 import queue
@@ -14,7 +13,7 @@ midi_queue = queue.Queue()
 def midi_worker(midi_queue):
     while True:
         note = midi_queue.get()
-        print('current queue size ---- ', midi_queue.qsize())
+        print("current queue size ---- ", midi_queue.qsize())
         execute_midi(note)
         midi_queue.task_done()
 
@@ -35,6 +34,7 @@ def execute_midi(note):
                 print(i, threading.get_ident())
                 time.sleep(1)
                 i -= 1
+
             off = Message("note_off", note=note)
             print("sending {}".format(off))
             port.send(off)
@@ -53,7 +53,9 @@ def receive():
 
     worker_threads = []
     for i in range(20):
-        t = threading.Thread(target=midi_worker, daemon=True, args=(midi_queue,))
+        t = threading.Thread(
+            target=midi_worker, daemon=True, args=(midi_queue,)
+        )
         worker_threads.append(t)
         t.start()
 
@@ -61,15 +63,15 @@ def receive():
         print("waiting for connection")
         conn, addr = s.accept()
         try:
-            #print("connection from", addr)
+            # print("connection from", addr)
             while True:
                 data = conn.recv(2048)
-                #print("received {!r}".format(data))
+                # print("received {!r}".format(data))
                 if not data:
                     break
                 else:
                     d = int.from_bytes(data, byteorder="little")
-                    #print(d)
+                    # print(d)
                     midi_queue.put(d)
         except KeyboardInterrupt:
             raise
