@@ -4,81 +4,62 @@ import time
 import socket
 import queue
 import threading
-
-# import Rand class
-from utils import *
-
-# all LED effects
-from effects import *
-
-import board
-import busio
-
-import adafruit_mpr121
-
-import opc
 import math
+
+
+import pyaudio
+import numpy as np
 
 from random import randint
 
-import time
-import numpy as np
-import pyaudio
-import config
-import numpy as np
-
-from scipy.ndimage.filters import gaussian_filter1d
+# config file
 import config
 
+# for lighting
+import opc
+import fastopc
+# import board
+# import busio
+# import adafruit_mpr121
+
+# audio processing
 import dsp
 import vis
 
-NUM_LEDS = 792
-pixels = [(0, 0, 0)] * NUM_LEDS
-rate = 0.001
+from scipy.ndimage.filters import gaussian_filter1d
 
-_time_prev = time.time() * 1000.0
-"""The previous time that the frames_per_second() function was called"""
+# pixels = [(0, 0, 0)] * config.NUM_LEDS
+pixels = np.tile(1, (config.NUM_STRIPS, config.NUM_LEDS))
+visualization_effect = config.VISUALIZATION_MODE
+start = time.time()
 
-_fps = dsp.ExpFilter(val=config.FPS, alpha_decay=0.2, alpha_rise=0.2)
-"""The low-pass filter used to estimate frames-per-second"""
+# Visualization effect to display on the LED strip 
+modes = {
+        0: visualize_spectrum,
+        1: visualize_energy,
+        2: visualize_scroll,
+        3: None,
+        4: chase_0
+}
 
-r_filt = dsp.ExpFilter(np.tile(0.01, config.N_PIXELS // 2),
-                       alpha_decay=0.2, alpha_rise=0.99)
-g_filt = dsp.ExpFilter(np.tile(0.01, config.N_PIXELS // 2),
-                       alpha_decay=0.05, alpha_rise=0.3)
-b_filt = dsp.ExpFilter(np.tile(0.01, config.N_PIXELS // 2),
-                       alpha_decay=0.1, alpha_rise=0.5)
-common_mode = dsp.ExpFilter(np.tile(0.01, config.N_PIXELS // 2),
-                       alpha_decay=0.99, alpha_rise=0.01)
-p_filt = dsp.ExpFilter(np.tile(1, (3, config.N_PIXELS // 2)),
-                       alpha_decay=0.1, alpha_rise=0.99)
-p = np.tile(1.0, (3, config.N_PIXELS // 2))
-gain = dsp.ExpFilter(np.tile(0.01, config.N_FFT_BINS),
-                     alpha_decay=0.001, alpha_rise=0.99)
+######################################################################################
+# audio analysis
+######################################################################################
 
-fft_plot_filter = dsp.ExpFilter(np.tile(1e-1, config.N_FFT_BINS),
-                         alpha_decay=0.5, alpha_rise=0.99)
-mel_gain = dsp.ExpFilter(np.tile(1e-1, config.N_FFT_BINS),
-                         alpha_decay=0.01, alpha_rise=0.99)
-mel_smoothing = dsp.ExpFilter(np.tile(1e-1, config.N_FFT_BINS),
-                         alpha_decay=0.5, alpha_rise=0.99)
-volume = dsp.ExpFilter(config.MIN_VOLUME_THRESHOLD,
-                       alpha_decay=0.02, alpha_rise=0.02)
-fft_window = np.hamming(int(config.MIC_RATE / config.FPS) * config.N_ROLLING_HISTORY)
+def memoize(function):
+    """Provides a decorator for memoizing functions"""
+    from functools import wraps
+    memo = {}
 
-prev_fps_update = time.time()
-_prev_spectrum = np.tile(0.01, config.N_PIXELS // 2)
-
-# Number of audio samples to read every time frame
-samples_per_frame = int(config.MIC_RATE / config.FPS)
-
-# Array containing the rolling audio sample window
-y_roll = np.random.rand(config.N_ROLLING_HISTORY, samples_per_frame) / 1e16
-
-visualization_effect = visualize_spectrum
-"""Visualization effect to display on the LED strip"""
-
+    @wraps(function)
+    def wrapper(*args):
+        if args in memo:
+            return memo[args]
+        else:
+            rv = function(*args)
+            memo[args] = rv
+            return rv
+    return wrapper
 
 def frames_per_second():
     """Return the estimated frames per second
@@ -102,21 +83,6 @@ def frames_per_second():
         return _fps.value
     return _fps.update(1000.0 / dt)
 
-
-def memoize(function):
-    """Provides a decorator for memoizing functions"""
-    from functools import wraps
-    memo = {}
-
-    @wraps(function)
-    def wrapper(*args):
-        if args in memo:
-            return memo[args]
-        else:
-            rv = function(*args)
-            memo[args] = rv
-            return rv
-    return wrapper
 
 @memoize
 def _normalized_linspace(size):
@@ -177,7 +143,7 @@ def visualize_energy(y):
     gain.update(y)
     y /= gain.value
     # Scale by the width of the LED strip
-    y *= float((config.N_PIXELS // 2) - 1)
+    y *= float((config.NUM_LEDS // 2) - 1)
     # Map color channels according to energy in the different freq bands
     scale = 0.9
     r = int(np.mean(y[:len(y) // 3]**scale))
@@ -204,7 +170,7 @@ def visualize_spectrum(y):
     """Effect that maps the Mel filterbank frequencies onto the LED strip"""
 
     global _prev_spectrum
-    y = np.copy(interpolate(y, config.N_PIXELS // 2))
+    y = np.copy(interpolate(y, config.NUM_LEDS // 2))
     common_mode.update(y)
     diff = y - _prev_spectrum
     _prev_spectrum = np.copy(y)
@@ -221,6 +187,7 @@ def visualize_spectrum(y):
     output = np.array([r, g,b]) * 255
     return output
 
+
 def microphone_update(audio_samples):
 
     global y_roll, prev_rms, prev_exp, prev_fps_update
@@ -234,10 +201,22 @@ def microphone_update(audio_samples):
     y_data = np.concatenate(y_roll, axis=0).astype(np.float32)
     vol = np.max(np.abs(y_data))
 
+    # visual modes cycle every 60 seconds 
+    current_time = time.time()
+    if (current_time - start) > 60:
+        start = current_time
+        n = Rand(max_num=4)
+        visualization_effect = modes[n]
+
     if vol < config.MIN_VOLUME_THRESHOLD:
         print('No audio input. Volume below threshold. Volume:', vol)
-        vis.pixels = np.tile(0, (3, config.N_PIXELS))
+        vis.pixels = np.tile(0, (3, config.NUM_LEDS))
         vis.update()
+    elif n == 3:
+        vis.pixels = audio_samples
+        vis.update()
+    elif n == 4:
+        chase_0()
     else:
         # Transform audio input into the frequency domain
         N = len(y_data)
@@ -268,18 +247,18 @@ def microphone_update(audio_samples):
     
 def start_stream(callback):
     p = pyaudio.PyAudio()
-    frames_per_buffer = int(config.MIC_RATE / config.FPS)
     stream = p.open(format=pyaudio.paInt16,
                     channels=1,
                     rate=config.MIC_RATE,
                     input=True,
-                    frames_per_buffer=frames_per_buffer)
+                    frames_per_buffer=samples_per_frame)
     overflows = 0
     prev_ovf_time = time.time()
 
     while True:
         try:
-            y = np.fromstring(stream.read(frames_per_buffer), dtype=np.int16)
+            y = np.frombuffer(stream.read(samples_per_frame, exception_on_overflow=False), 
+                              dtype=np.int16)
             y = y.astype(np.float32)
             callback(y)
         except IOError:
@@ -291,11 +270,50 @@ def start_stream(callback):
     stream.close()
     p.terminate()
 
+# The previous time that the frames_per_second() function was called
+_time_prev = time.time() * 1000.0
+
+# The low-pass filter used to estimate frames-per-second
+_fps = dsp.ExpFilter(val=config.FPS, alpha_decay=0.2, alpha_rise=0.2)
+
+r_filt = dsp.ExpFilter(np.tile(0.01, config.NUM_LEDS // 2),
+                       alpha_decay=0.2, alpha_rise=0.99)
+g_filt = dsp.ExpFilter(np.tile(0.01, config.NUM_LEDS // 2),
+                       alpha_decay=0.05, alpha_rise=0.3)
+b_filt = dsp.ExpFilter(np.tile(0.01, config.NUM_LEDS // 2),
+                       alpha_decay=0.1, alpha_rise=0.5)
+common_mode = dsp.ExpFilter(np.tile(0.01, config.NUM_LEDS // 2),
+                       alpha_decay=0.99, alpha_rise=0.01)
+p_filt = dsp.ExpFilter(np.tile(1, (3, config.NUM_LEDS // 2)),
+                       alpha_decay=0.1, alpha_rise=0.99)
+p = np.tile(1.0, (3, config.NUM_LEDS // 2))
+gain = dsp.ExpFilter(np.tile(0.01, config.N_FFT_BINS),
+                     alpha_decay=0.001, alpha_rise=0.99)
+
+fft_plot_filter = dsp.ExpFilter(np.tile(1e-1, config.N_FFT_BINS),
+                         alpha_decay=0.5, alpha_rise=0.99)
+mel_gain = dsp.ExpFilter(np.tile(1e-1, config.N_FFT_BINS),
+                         alpha_decay=0.01, alpha_rise=0.99)
+mel_smoothing = dsp.ExpFilter(np.tile(1e-1, config.N_FFT_BINS),
+                         alpha_decay=0.5, alpha_rise=0.99)
+volume = dsp.ExpFilter(config.MIN_VOLUME_THRESHOLD,
+                       alpha_decay=0.02, alpha_rise=0.02)
+fft_window = np.hamming(int(config.MIC_RATE / config.FPS) * config.N_ROLLING_HISTORY)
+
+prev_fps_update = time.time()
+_prev_spectrum = np.tile(0.01, config.NUM_LEDS // 2)
+
+# Number of audio samples to read every time frame
+samples_per_frame = int(config.MIC_RATE / config.FPS)
+
+# Array containing the rolling audio sample window
+y_roll = np.random.rand(config.N_ROLLING_HISTORY, samples_per_frame) / 1e16
+
+
 
 ######################################################################################
-# audio spectrum
+# audio analysis
 ######################################################################################
-
 
 client = opc.Client("localhost:7890")
 led_queue = queue.Queue()
@@ -304,10 +322,10 @@ class Rand:
     def __init__(self):
         self.last = None
 
-    def __call__(self):
-        r = randint(0, 7)
+    def __call__(self, max_num=7):
+        r = randint(0, max_num)
         while r == self.last:
-            r = random.randint(0, 7)
+            r = random.randint(0, max_num)
         self.last = r
         return r
 
@@ -401,23 +419,20 @@ def gamma(color, gamma):
 
 
 def chase_0():
-    while True:
-        pixels = [(0, 0, 0)] * NUM_LEDS
-        for j in range(NUM_LEDS):
-            print(j)
-            pixels[j] = (255, 255, 0)
-            client.put_pixels(pixels)
-            time.sleep(rate)
+    for j in range(config.NUM_LEDS):
+        pixels[j] = (255, 255, 0)
+        client.put_pixels(pixels)
+        time.sleep(config.RATE)
 
 
 def chase_1():
     while True:
-        for j in range(NUM_LEDS):
+        for j in range(config.NUM_LEDS):
             print(j)
-            pixels = [(0, 0, 0)] * NUM_LEDS
+            pixels = [(0, 0, 0)] * config.NUM_LEDS
             pixels[j] = (255, 0, 0)
             client.put_pixels(pixels)
-            time.sleep(rate)
+            time.sleep(config.RATE)
 
 
 def pixel_color(t, i, n_pixels, random_values):
@@ -511,16 +526,13 @@ def miami(sensor_id):
 
     global pixels
 
-    random_values = [random.random() for i in range(NUM_LEDS)]
+    random_values = [random.random() for i in range(config.NUM_LEDS)]
     coordinates = list(
         range(led_coordinates[sensor_id][0], led_coordinates[sensor_id][1])
     )
 
     start_pixel = led_coordinates[sensor_id][0]
     end_pixel = led_coordinates[sensor_id][1]
-
-    #print(start_pixel, end_pixel)
-    #print(coordinates)
 
     start_time = time.time()
 
@@ -529,11 +541,11 @@ def miami(sensor_id):
         while time.time() < t_end:
             t = time.time() - start_time
             pixels[start_pixel:end_pixel] = [
-                pixel_color(t, i, NUM_LEDS, random_values) for i in coordinates
+                pixel_color(t, i, config.NUM_LEDS, random_values) for i in coordinates
             ]
             client.put_pixels(pixels, channel=0)
     except KeyboardInterrupt:
-        pixels = [(0, 0, 0)] * NUM_LEDS
+        pixels = [(0, 0, 0)] * config.NUM_LEDS
         client.put_pixels(pixels, channel=0)
         sys.exit(1)
     return
@@ -543,8 +555,8 @@ def fade():
     """ fade effect """
     client = opc.Client("localhost:7890")
 
-    black = [(0, 0, 0)] * NUM_LEDS
-    white = [(255, 255, 255)] * NUM_LEDS
+    black = [(0, 0, 0)] * config.NUM_LEDS
+    white = [(255, 255, 255)] * config.NUM_LEDS
 
     while True:
         client.put_pixels(white)
@@ -567,167 +579,9 @@ def strobe():
         client.put_pixels(black)
         time.sleep(0.05)
 
-
-
-def send(pin):
-    HOST = "192.168.1.224"
-    PORT = 5555
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, PORT))
-        s.sendall((pin).to_bytes(2, byteorder="little"))
-
-
-def execute_lights(led_queue):
-    """ 
-    lights up light strip based on sensor_id
-
-    uses threading for non-blocking
-    """
-    while True:
-        sensor_id = led_queue.get()
-        miami(sensor_id)
-        led_queue.task_done()
-
-
-def explore_test():
-    worker_threads = []
-    for i in range(5):
-        t = threading.Thread(
-            target=execute_lights, daemon=True, args=(led_queue,)
-        )
-        worker_threads.append(t)
-        t.start()
-
-    while True:
-        for i in range(5):
-            time.sleep(0.5)
-            print(i)
-            rand = Rand()
-            led_queue.put(rand())
-
-    j = 2
-    for j in range(3):
-        print("sleeping", j)
-        time.sleep(1)
-        j -= 1
-
-
-def explore_mode(debug=False):
-    i2c = busio.I2C(board.SCL, board.SDA)
-    mpr121 = adafruit_mpr121.MPR121(i2c)
-
-    worker_threads = []
-    for i in range(20):
-        t = threading.Thread(
-            target=execute_lights, daemon=True, args=(led_queue,)
-        )
-        worker_threads.append(t)
-        t.start()
-
-    last_touched = mpr121.touched()
-    while True:
-        current_touched = mpr121.touched()
-
-        # Check each pin's last and current state to see if it was pressed or released.
-        for i in range(12):
-            # Each pin is represented by a bit in the touched value.  A value of 1
-            # means the pin is being touched, and 0 means it is not being touched.
-            pin_bit = 1 << i
-
-            # First check if transitioned from not touched to touched.
-            if current_touched & pin_bit and not last_touched & pin_bit:
-                print("{0} touched!".format(i))
-                if i <= 7:
-                    led_queue.put(i)
-                    send(i)
-
-            if not current_touched & pin_bit and last_touched & pin_bit:
-                print("{0} released!".format(i))
-
-        # Update last state and wait a short period before repeating.
-        last_touched = current_touched
-        time.sleep(0.1)
-
-        if debug:
-            # for debugging
-            print(
-                "\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(mpr121.touched())
-            )
-            filtered = [mpr121.filtered_data(i) for i in range(12)]
-
-            print("Filt:", "\t".join(map(str, filtered)))
-            base = [mpr121.baseline_data(i) for i in range(12)]
-
-            print("Base:", "\t".join(map(str, base)))
-
-
-def game_mode(debug):
-    i2c = busio.I2C(board.SCL, board.SDA)
-    mpr121 = adafruit_mpr121.MPR121(i2c)
-
-    # # NOTE you can optionally change the address of the device:
-    # mpr121 = adafruit_mpr121.MPR121(i2c, address=0x91)
-
-    # initial touch state
-    last_touched = mpr121.touched()
-
-    # generate random number for touch tensor
-    # mpr121 sensor has 12 sensors total, so need 0-11
-    to_be_touched = Rand()
-
-    # Loop forever testing each input and printing when they're touched.
-    while True:
-        current_touched = mpr121.touched()
-
-        for i in range(12):
-            # Each pin is represented by a bit in the touched value.
-            # A value of 1 means the pin is being touched, and 0 means
-            # it is not being touched.
-            pin_bit = 1 << i
-
-            if (
-                to_be_touched == i
-                and current_touched & pin_bit
-                and not last_touched & pin_bit
-            ):
-                print("{0} touched!".format(i))
-                to_be_touched = Rand()
-
-            if (
-                to_be_touched == i
-                and not current_touched & pin_bit
-                and last_touched & pin_bit
-            ):
-                print("{0} released!".format(i))
-
-        # Update last state and wait a short period before repeating.
-        last_touched = current_touched
-        time.sleep(0.1)
-
-        if debug:
-            # for debugging
-            print(
-                "\t\t\t\t\t\t\t\t\t\t\t\t\t 0x{0:0X}".format(mpr121.touched())
-            )
-            filtered = [mpr121.filtered_data(i) for i in range(12)]
-
-            print("Filt:", "\t".join(map(str, filtered)))
-            base = [mpr121.baseline_data(i) for i in range(12)]
-
-            print("Base:", "\t".join(map(str, base)))
-
-
 def main():
-    # Initialize LEDs
     vis.update()
-
-    # Start listening to live audio stream
     start_stream(microphone_update)
-
-    # # TODO add option selection based on input mode
-    # explore_mode()
-    # game_mode()
 
 if __name__ == "__main__":
     main()

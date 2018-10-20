@@ -1,6 +1,9 @@
 import os
 
 DEVICE = 'pi'
+NUM_LEDS = 64
+NUM_STRIPS = 10
+RATE = 0.001
 
 """GPIO pin connected to the LED strip pixels (must support PWM)"""
 LED_PIN = 18
@@ -18,42 +21,43 @@ BRIGHTNESS = 255
 LED_INVERT = True
 
 """Set to True because Raspberry Pi doesn't use hardware dithering"""
-SOFTWARE_GAMMA_CORRECTION = True
+SOFTWARE_GAMMA_CORRECTION = False
 
 """Whether to display the FPS when running (can reduce performance)"""
-DISPLAY_FPS = True
-
-"""Number of pixels in the LED strip (must match ESP8266 firmware)"""
-N_PIXELS = 64
-
-"""Location of the gamma correction table"""
-GAMMA_TABLE_PATH = os.path.join(os.path.dirname(__file__), 'gamma_table.npy')
+DISPLAY_FPS = False
 
 """Sampling frequency of the microphone in Hz"""
 MIC_RATE = 44100
 
-FPS = 60
-"""Desired refresh rate of the visualization (frames per second)
+"""Visualization mode"""
+VISUALIZATION_MODE = 2
+
+"""
+Desired refresh rate of the visualization (frames per second)
+
 FPS indicates the desired refresh rate, or frames-per-second, of the audio
 visualization. The actual refresh rate may be lower if the computer cannot keep
 up with desired FPS value.
+
 Higher framerates improve "responsiveness" and reduce the latency of the
 visualization but are more computationally expensive.
+
 Low framerates are less computationally expensive, but the visualization may
 appear "sluggish" or out of sync with the audio being played if it is too low.
+
 The FPS should not exceed the maximum refresh rate of the LED strip, which
 depends on how long the LED strip is.
 """
-_max_led_FPS = int(((N_PIXELS * 30e-6) + 50e-6)**-1.0)
+FPS = 30
+_max_led_FPS = int(((NUM_LEDS * 30e-6) + 50e-6)**-1.0)
 assert FPS <= _max_led_FPS, 'FPS must be <= {}'.format(_max_led_FPS)
 
-MIN_FREQUENCY = 200
 """Frequencies below this value will be removed during audio processing"""
+MIN_FREQUENCY = 200
 
-MAX_FREQUENCY = 12000
 """Frequencies above this value will be removed during audio processing"""
+MAX_FREQUENCY = 12000
 
-N_FFT_BINS = 24
 """Number of frequency bins to use when transforming audio to frequency domain
 Fast Fourier transforms are used to transform time-domain audio data to the
 frequency domain. The frequencies present in the audio signal are assigned
@@ -65,8 +69,10 @@ number of bins. More bins is not always better!
 There is no point using more bins than there are pixels on the LED strip.
 """
 
-N_ROLLING_HISTORY = 2
-"""Number of past audio frames to include in the rolling window"""
+N_FFT_BINS = 24
 
-MIN_VOLUME_THRESHOLD = 1e-7
+"""Number of past audio frames to include in the rolling window"""
+N_ROLLING_HISTORY = 2
+
 """No music visualization displayed if recorded audio volume below threshold"""
+MIN_VOLUME_THRESHOLD = 1e-7

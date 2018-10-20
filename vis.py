@@ -1,28 +1,22 @@
 # import platform
 import numpy as np
 import config
+import opc
+import fastopc
+import ipdb
 
-# Raspberry Pi controls the LED strip directly
-elif config.DEVICE == 'pi':
-    import neopixel
-    strip = neopixel.Adafruit_NeoPixel(config.N_PIXELS, config.LED_PIN,
-                                       config.LED_FREQ_HZ, config.LED_DMA,
-                                       config.LED_INVERT, config.BRIGHTNESS)
-    strip.begin()
+# Pixel values that were most recently displayed on the LED strip
+_prev_pixels = np.tile(253, (3, config.NUM_LEDS))
 
-"""Gamma lookup table used for nonlinear brightness correction"""
-_gamma = np.load(config.GAMMA_TABLE_PATH)
+# Pixel values for the LED strip"""
+pixels = np.tile(1, (config.NUM_STRIPS, config.NUM_LEDS))
 
-"""Pixel values that were most recently displayed on the LED strip"""
-_prev_pixels = np.tile(253, (3, config.N_PIXELS))
-
-"""Pixel values for the LED strip"""
-pixels = np.tile(1, (3, config.N_PIXELS))
-
-# _is_python_2 = int(platform.python_version_tuple()[0]) == 2
+# client = opc.Client("localhost:7890")
+# client = fastopc.Client("localhost:7890")
 
 def _update_pi():
-    """Writes new LED values to the Raspberry Pi's LED strip
+    """
+    Writes new LED values to the Raspberry Pi's LED strip
     Raspberry Pi uses the rpi_ws281x to control the LED strip directly.
     This function updates the LED strip with new values.
     """
@@ -30,26 +24,22 @@ def _update_pi():
 
     # Truncate values and cast to integer
     pixels = np.clip(pixels, 0, 255).astype(int)
+    p = np.copy(pixels)
 
-    # Optional gamma correction
-    p = _gamma[pixels] if config.SOFTWARE_GAMMA_CORRECTION else np.copy(pixels)
-
-    # Encode 24-bit LED values in 32 bit integers
-    r = np.left_shift(p[0][:].astype(int), 8)
-    g = np.left_shift(p[1][:].astype(int), 16)
-    b = p[2][:].astype(int)
-    rgb = np.bitwise_or(np.bitwise_or(r, g), b)
+    # # Encode 24-bit LED values in 32 bit integers
+    # r = np.left_shift(p[0][:].astype(int), 8)
+    # g = np.left_shift(p[1][:].astype(int), 16)
+    # b = p[2][:].astype(int)
+    # rgb = np.bitwise_or(np.bitwise_or(r, g), b)
 
     # Update the pixels
-    for i in range(config.N_PIXELS):
-
-        # Ignore pixels if they haven't changed (saves bandwidth)
+    for i in range(config.NUM_LEDS):
+M       # Ignore pixels if they haven't changed (saves bandwidth)
         if np.array_equal(p[:, i], _prev_pixels[:, i]):
             continue
-        strip._led_data[i] = rgb[i]
+        # strip._led_data[i] = rgb[i]
 
     _prev_pixels = np.copy(p)
-    strip.show()
 
 def update():
     _update_pi()
