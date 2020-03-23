@@ -3,12 +3,10 @@ import numpy as np
 import config
 import opc
 import fastopc
-import ipdb
+import pdb
 
 # Pixel values that were most recently displayed on the LED strip
-_prev_pixels = np.tile(253, (3, config.NUM_LEDS))
-
-# Pixel values for the LED strip"""
+_prev_pixels = np.tile(253, (config.NUM_STRIPS, config.NUM_LEDS))
 pixels = np.tile(1, (config.NUM_STRIPS, config.NUM_LEDS))
 
 # client = opc.Client("localhost:7890")
@@ -24,7 +22,7 @@ def _update_pi():
 
     # Truncate values and cast to integer
     pixels = np.clip(pixels, 0, 255).astype(int)
-    p = np.copy(pixels)
+    x = np.copy(pixels)
 
     # # Encode 24-bit LED values in 32 bit integers
     # r = np.left_shift(p[0][:].astype(int), 8)
@@ -32,14 +30,16 @@ def _update_pi():
     # b = p[2][:].astype(int)
     # rgb = np.bitwise_or(np.bitwise_or(r, g), b)
 
-    # Update the pixels
-    for i in range(config.NUM_LEDS):
-M       # Ignore pixels if they haven't changed (saves bandwidth)
-        if np.array_equal(p[:, i], _prev_pixels[:, i]):
-            continue
-        # strip._led_data[i] = rgb[i]
+    # # Update the pixels
+    # for i in range(config.NUM_LEDS):
+        # # Ignore pixels if they haven't changed (saves bandwidth)
+        # if np.array_equal(p[:, i], _prev_pixels[:, i]):
+            # continue
+        # # strip._led_data[i] = rgb[i]
 
-    _prev_pixels = np.copy(p)
+    print(x)
+    print(x.shape)
+    _prev_pixels = np.copy(x)
 
 def update():
     _update_pi()

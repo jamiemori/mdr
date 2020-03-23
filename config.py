@@ -2,7 +2,7 @@ import os
 
 DEVICE = 'pi'
 NUM_LEDS = 64
-NUM_STRIPS = 10
+NUM_STRIPS = 8
 RATE = 0.001
 
 """GPIO pin connected to the LED strip pixels (must support PWM)"""

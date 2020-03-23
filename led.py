@@ -5,7 +5,7 @@ import socket
 import queue
 import threading
 import math
-
+import pdb
 
 import pyaudio
 import numpy as np
@@ -29,18 +29,8 @@ import vis
 from scipy.ndimage.filters import gaussian_filter1d
 
 # pixels = [(0, 0, 0)] * config.NUM_LEDS
-pixels = np.tile(1, (config.NUM_STRIPS, config.NUM_LEDS))
 visualization_effect = config.VISUALIZATION_MODE
 start = time.time()
-
-# Visualization effect to display on the LED strip 
-modes = {
-        0: visualize_spectrum,
-        1: visualize_energy,
-        2: visualize_scroll,
-        3: None,
-        4: chase_0
-}
 
 ######################################################################################
 # audio analysis
@@ -114,7 +104,9 @@ def interpolate(y, new_length):
 def visualize_scroll(y):
     """Effect that originates in the center and scrolls outwards"""
     global p
+
     y = y**2.0
+
     gain.update(y)
     y /= gain.value
     y *= 255.0
@@ -133,12 +125,15 @@ def visualize_scroll(y):
     p[2, 0] = b
 
     # Update the LED strip
-    return np.concatenate((p[:, ::-1], p), axis=1)
+    output = np.concatenate((p[:, ::-1], p), axis=1)
+    output = np.tile(output.transpose(), (config.NUM_STRIPS, 1))
+    return output
 
 
 def visualize_energy(y):
     """Effect that expands from the center with increasing sound energy"""
     global p
+
     y = np.copy(y)
     gain.update(y)
     y /= gain.value
@@ -170,6 +165,7 @@ def visualize_spectrum(y):
     """Effect that maps the Mel filterbank frequencies onto the LED strip"""
 
     global _prev_spectrum
+
     y = np.copy(interpolate(y, config.NUM_LEDS // 2))
     common_mode.update(y)
     diff = y - _prev_spectrum
@@ -184,7 +180,8 @@ def visualize_spectrum(y):
     r = np.concatenate((r[::-1], r))
     g = np.concatenate((g[::-1], g))
     b = np.concatenate((b[::-1], b))
-    output = np.array([r, g,b]) * 255
+    x = np.array([r, g, b]) * 255
+    output = np.tile(x.transpose(), (config.NUM_STRIPS, 1))
     return output
 
 
@@ -201,50 +198,35 @@ def microphone_update(audio_samples):
     y_data = np.concatenate(y_roll, axis=0).astype(np.float32)
     vol = np.max(np.abs(y_data))
 
-    # visual modes cycle every 60 seconds 
-    current_time = time.time()
-    if (current_time - start) > 60:
-        start = current_time
-        n = Rand(max_num=4)
-        visualization_effect = modes[n]
+    # Transform audio input into the frequency domain
+    N = len(y_data)
+    N_zeros = 2**int(np.ceil(np.log2(N))) - N
 
-    if vol < config.MIN_VOLUME_THRESHOLD:
-        print('No audio input. Volume below threshold. Volume:', vol)
-        vis.pixels = np.tile(0, (3, config.NUM_LEDS))
-        vis.update()
-    elif n == 3:
-        vis.pixels = audio_samples
-        vis.update()
-    elif n == 4:
-        chase_0()
-    else:
-        # Transform audio input into the frequency domain
-        N = len(y_data)
-        N_zeros = 2**int(np.ceil(np.log2(N))) - N
-
-        # Pad with zeros until the next power of two
-        y_data *= fft_window
-        y_padded = np.pad(y_data, (0, N_zeros), mode='constant')
-        YS = np.abs(np.fft.rfft(y_padded)[:N // 2])
-        
-        # Construct a Mel filterbank from the FFT data
-        mel = np.atleast_2d(YS).T * dsp.mel_y.T
-
-        # Scale data to values more suitable for visualization
-        # mel = np.sum(mel, axis=0)
-        mel = np.sum(mel, axis=0)
-        mel = mel**2.0
-
-        # Gain normalization
-        mel_gain.update(np.max(gaussian_filter1d(mel, sigma=1.0)))
-        mel /= mel_gain.value
-        mel = mel_smoothing.update(mel)
-
-        # Map filterbank output onto LED strip
-        output = visualization_effect(mel)
-        vis.pixels = output
-        vis.update()
+    # Pad with zeros until the next power of two
+    y_data *= fft_window
+    y_padded = np.pad(y_data, (0, N_zeros), mode='constant')
+    YS = np.abs(np.fft.rfft(y_padded)[:N // 2])
     
+    # Construct a Mel filterbank from the FFT data
+    mel = np.atleast_2d(YS).T * dsp.mel_y.T
+    # pdb.set_trace()
+
+    # Scale data to values more suitable for visualization
+    # mel = np.sum(mel, axis=0)
+    mel = np.sum(mel, axis=0)
+    mel = mel**2.0
+
+    # Gain normalization
+    mel_gain.update(np.max(gaussian_filter1d(mel, sigma=1.0)))
+    mel /= mel_gain.value
+    mel = mel_smoothing.update(mel)
+
+    # map filterbank output onto led strip
+    # pdb.set_trace()
+    output = visualize_scroll(mel)
+    vis.pixels = output
+    vis.update()
+
 def start_stream(callback):
     p = pyaudio.PyAudio()
     stream = p.open(format=pyaudio.paInt16,
